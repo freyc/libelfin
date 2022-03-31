@@ -167,12 +167,21 @@ elf::get_segment(unsigned index) const
 
 struct segment::impl {
         impl(const elf &f)
-                : f(f), data(nullptr) { }
+                : p(f.m), data(nullptr) { }
 
-        const elf f;
+        elf get_elf();
+        std::weak_ptr<elf::impl> p;
         Phdr<> hdr;
         const void *data;
 };
+
+elf
+segment::impl::get_elf()
+{
+        auto f = elf();
+        f.m = p.lock();
+        return f;
+}
 
 segment::segment(const elf &f, const void *hdr)
     : m(make_shared<impl>(f)) {
@@ -186,9 +195,11 @@ segment::get_hdr() const {
 
 const void *
 segment::data() const {
-        if (!m->data)
-                m->data = m->f.get_loader()->load(m->hdr.offset,
-                                                  m->hdr.filesz);
+        if (!m->data) {
+                auto f = m->get_elf();
+                m->data = f.get_loader()->load(m->hdr.offset,
+                                               m->hdr.filesz);
+        }
         return m->data;
 }
 
@@ -221,9 +232,10 @@ enums::to_string(shn v)
 struct section::impl
 {
         impl(const elf &f)
-                : f(f), name(nullptr), data(nullptr) { }
+                : p(f.m), name(nullptr), data(nullptr) { }
 
-        const elf f;
+        elf get_elf();
+        std::weak_ptr<elf::impl> p;
         Shdr<> hdr;
         const char *name;
         size_t name_len;
@@ -242,13 +254,23 @@ section::get_hdr() const
         return m->hdr;
 }
 
+elf
+section::impl::get_elf()
+{
+        auto f = elf();
+        f.m = p.lock();
+        return f;
+}
+
 const char *
 section::get_name(size_t *len_out) const
 {
         // XXX Should the section name strtab be cached?
-        if (!m->name)
-                m->name = m->f.get_section(m->f.get_hdr().shstrndx)
+        if (!m->name) {
+                auto f = m->get_elf();
+                m->name = f.get_section(f.get_hdr().shstrndx)
                         .as_strtab().get(m->hdr.name, &m->name_len);
+        }
         if (len_out)
                 *len_out = m->name_len;
         return m->name;
@@ -265,8 +287,10 @@ section::data() const
 {
         if (m->hdr.type == sht::nobits)
                 return nullptr;
-        if (!m->data)
-                m->data = m->f.get_loader()->load(m->hdr.offset, m->hdr.size);
+        if (!m->data) {
+                auto f = m->get_elf();
+                m->data = f.get_loader()->load(m->hdr.offset, m->hdr.size);
+        }
         return m->data;
 }
 
@@ -281,7 +305,8 @@ section::as_strtab() const
 {
         if (m->hdr.type != sht::strtab)
                 throw section_type_mismatch("cannot use section as strtab");
-        return strtab(m->f, data(), size());
+        auto f = m->get_elf();
+        return strtab(f, data(), size());
 }
 
 symtab
@@ -289,8 +314,9 @@ section::as_symtab() const
 {
         if (m->hdr.type != sht::symtab && m->hdr.type != sht::dynsym)
                 throw section_type_mismatch("cannot use section as symtab");
-        return symtab(m->f, data(), size(),
-                      m->f.get_section(get_hdr().link).as_strtab());
+        auto f = m->get_elf();
+        return symtab(f, data(), size(),
+                      f.get_section(get_hdr().link).as_strtab());
 }
 
 //////////////////////////////////////////////////////////////////
