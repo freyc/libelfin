@@ -166,6 +166,7 @@ public:
         std::shared_ptr<section> get_section(section_type type) const;
 
 private:
+        friend class unit;
         struct impl;
         std::shared_ptr<impl> m;
 };
@@ -221,7 +222,7 @@ public:
         /**
          * Return the dwarf file this unit is in.
          */
-        const dwarf &get_dwarf() const;
+        const dwarf get_dwarf() const;
 
         /**
          * Return the byte offset of this unit's header in its

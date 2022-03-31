@@ -135,7 +135,7 @@ dwarf::get_section(section_type type) const
  */
 struct unit::impl
 {
-        const dwarf file;
+        std::weak_ptr<dwarf::impl> file;
         const section_offset offset;
         const std::shared_ptr<section> subsec;
         const section_offset debug_abbrev_offset;
@@ -162,22 +162,33 @@ struct unit::impl
              const std::shared_ptr<section> &subsec,
              section_offset debug_abbrev_offset, section_offset root_offset,
              uint64_t type_signature = 0, section_offset type_offset = 0)
-                : file(file), offset(offset), subsec(subsec),
+                : file(file.m), offset(offset), subsec(subsec),
                   debug_abbrev_offset(debug_abbrev_offset),
                   root_offset(root_offset), type_signature(type_signature),
                   type_offset(type_offset), have_abbrevs(false) { }
 
         void force_abbrevs();
+
+        const dwarf get_dwarf() const
+        {
+                auto d = dwarf();
+                d.m = file.lock();
+                return d;
+        }
+
+
 };
 
 unit::~unit()
 {
 }
 
-const dwarf &
+const dwarf 
 unit::get_dwarf() const
 {
-        return m->file;
+        auto d = dwarf();
+        d.m = m->file.lock();
+        return d;
 }
 
 section_offset
@@ -236,7 +247,8 @@ unit::impl::force_abbrevs()
                 return;
 
         // Section 7.5.3
-        cursor c(file.get_section(section_type::abbrev),
+        auto f = get_dwarf();
+        cursor c(f.get_section(section_type::abbrev),
                  debug_abbrev_offset);
         abbrev_entry entry;
         abbrev_code highest = 0;
@@ -293,8 +305,9 @@ compilation_unit::get_line_table() const
                         goto done;
 
                 shared_ptr<section> sec;
+                auto f = get_dwarf();
                 try {
-                        sec = m->file.get_section(section_type::line);
+                        sec = f.get_section(section_type::line);
                 } catch (format_error &e) {
                         goto done;
                 }
