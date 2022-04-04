@@ -59,6 +59,25 @@ value::get_raw_size() const
                 size = cur.uleb128();
                 size += cur.get_section_offset() - offset;
                 break;
+        case DW_FORM::strp:
+                switch (cu->data()->fmt) {
+                case format::dwarf32:
+                        return sizeof(uint32_t);
+                case format::dwarf64:
+                        return sizeof(uint64_t);
+                default:
+                        throw runtime_error("unknown format");
+                }
+                break;
+        case DW_FORM::sec_offset:
+        switch(cu->data()->fmt) {
+                case format::dwarf32:
+                        size = sizeof(uint32_t);
+                        break;
+                case format::dwarf64:
+                        size = sizeof(uint64_t);
+                        break;        }
+                break;
         default:
                 throw runtime_error("get_raw_size for " + to_string(form) + " not implemented");
         }
