@@ -702,6 +702,10 @@ public:
          */
         section_offset as_sec_offset() const;
 
+        size_t get_raw_size() const;
+
+        const void *get_raw_data(size_t *size_out) const;
+
 private:
         friend class die;
 

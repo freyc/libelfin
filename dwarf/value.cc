@@ -23,6 +23,56 @@ value::get_section_offset() const
         return cu->get_section_offset() + offset;
 }
 
+size_t
+value::get_raw_size() const
+{
+        cursor cur(cu->data(), offset);
+        size_t size{0};
+
+        switch(form) {
+        case DW_FORM::addr:
+                size = cu->data()->addr_size;
+                break;
+        case DW_FORM::data1:
+                size = 1;
+                break;
+        case DW_FORM::data2:
+                size = 2;
+                break;
+        case DW_FORM::data4:
+                size = 4;
+                break;
+        case DW_FORM::data8:
+                size = 8;
+                break;
+        case DW_FORM::block1:
+                size = cur.fixed<uint8_t>() + sizeof(uint8_t);
+                break;
+        case DW_FORM::block2:
+                size = cur.fixed<uint16_t>() + sizeof(uint16_t);
+                break;
+        case DW_FORM::block4:
+                size = cur.fixed<uint32_t>() + sizeof(uint32_t);
+                break;
+        case DW_FORM::block:
+        case DW_FORM::exprloc:
+                size = cur.uleb128();
+                size += cur.get_section_offset() - offset;
+                break;
+        default:
+                throw runtime_error("get_raw_size for " + to_string(form) + " not implemented");
+        }
+        return size;
+}
+
+const void *
+value::get_raw_data(size_t *size_out) const
+{
+        auto addr = cu->data()->begin + offset;
+        *size_out = get_raw_size();
+        return addr;
+}
+
 taddr
 value::as_address() const
 {
