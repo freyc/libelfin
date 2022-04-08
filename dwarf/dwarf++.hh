@@ -494,6 +494,11 @@ public:
                 return d.next != o.d.next || d.cu != o.d.cu;
         }
 
+        bool operator==(const iterator &o) const
+        {
+                return not (*this != o);
+        }
+
         iterator &operator++();
 
 private:
